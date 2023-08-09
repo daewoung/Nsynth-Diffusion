@@ -25,14 +25,11 @@ class AttrDict(dict):
 
 
 params = AttrDict(
-    # Training params
-    batch_size=16,
     sample_rate=16000,
     n_mels=80,
     n_fft=1024,
     hop_samples=256,
     audio_len = 16000*5
-
 )
 
 
