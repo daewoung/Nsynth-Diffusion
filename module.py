@@ -1,5 +1,6 @@
 import torch 
 import torch.nn as nn 
+import torch.nn.functional as F
 
 class DoubleConv(nn.Module):
   def __init__(self, in_c, out_c, mid_c=None, residual=False):
@@ -98,6 +99,38 @@ class Up(nn.Module):
 #     return attention_value.swapaxes(2,1).view(-1, self.channels, self.size, self.size)
 
 
+# class SelfAttention(nn.Module):
+#   def __init__(self, channels, mel_size, time_size):
+#     super().__init__()
+
+#     self.channels = channels
+#     self.mel_size = mel_size
+#     self.time_size = time_size
+#     self.mha = nn.MultiheadAttention(embed_dim=channels, num_heads=4, batch_first=True)
+#     self.ln = nn.LayerNorm(channels)
+#     self.ff = nn.Sequential(
+#       nn.LayerNorm(channels),
+#       nn.Linear(channels, channels),
+#       nn.GELU(),
+#       nn.Linear(channels, channels)
+#     )
+    
+#   def forward(self, x):
+#     print(x.shape)
+#     x = x.view(-1, self.channels, self.mel_size*self.time_size).swapaxes(1, 2) # (B x H*W x C)
+
+#     x_ln = self.ln(x)
+#     print(x_ln.shape)
+#     print("x_ln Allocated Memory: {:.2f} MB".format(torch.cuda.memory_allocated() / 1024**2))
+
+#     attention_value, _ = self.mha(x_ln, x_ln, x_ln)
+#     print("x_ln Allocated Memory: {:.2f} MB".format(torch.cuda.memory_allocated() / 1024**2))
+
+#     attention_value = attention_value + x
+#     attention_value = self.ff(attention_value) + attention_value
+#     return attention_value.swapaxes(2,1).view(-1, self.channels, self.mel_size, self.time_size)
+  
+  
 class SelfAttention(nn.Module):
   def __init__(self, channels, mel_size, time_size):
     super().__init__()
@@ -105,17 +138,17 @@ class SelfAttention(nn.Module):
     self.channels = channels
     self.mel_size = mel_size
     self.time_size = time_size
-    self.mha = nn.MultiheadAttention(embed_dim=channels, num_heads=4, batch_first=True)
-    self.ln = nn.LayerNorm(channels)
+    self.mha = nn.MultiheadAttention(embed_dim=self.channels * self.mel_size, num_heads=4, batch_first=True)
+    self.ln = nn.LayerNorm(self.channels * self.mel_size)
     self.ff = nn.Sequential(
-      nn.LayerNorm(channels),
-      nn.Linear(channels, channels),
+      nn.LayerNorm(self.channels * self.mel_size),
+      nn.Linear(self.channels * self.mel_size, self.channels * self.mel_size),
       nn.GELU(),
-      nn.Linear(channels, channels)
+      nn.Linear(self.channels * self.mel_size, self.channels * self.mel_size)
     )
     
   def forward(self, x):
-    x = x.view(-1, self.channels, self.mel_size*self.time_size).swapaxes(1, 2) # (B x H*W x C)
+    x = x.view(-1, self.channels * self.mel_size, self.time_size).swapaxes(1, 2) # (B x H*W x C)
     x_ln = self.ln(x)
     attention_value, _ = self.mha(x_ln, x_ln, x_ln)
     attention_value = attention_value + x

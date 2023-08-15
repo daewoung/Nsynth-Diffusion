@@ -1,0 +1,10 @@
+# dir
+inference_result/
+inference_result_2
+save_pt/
+save_pt_2
+wandb/
+
+#file
+test_wandb.py
+test.ipynb

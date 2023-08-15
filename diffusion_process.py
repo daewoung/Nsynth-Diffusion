@@ -1,12 +1,13 @@
 import torch
 import torch.nn as nn 
-
+from tqdm.auto import tqdm
 class Diffusion:
-  def __init__(self, noise_steps=1000, beta_start = 1e-4, beta_end = 0.02, img_size=28, device = 'cuda'):
+  def __init__(self, noise_steps=1000, beta_start = 1e-4, beta_end = 0.02, mel_size=80, time_size = 251, device = 'cuda'):
     self.noise_steps = noise_steps
     self.beta_start = beta_start
     self.beta_end = beta_end
-    self.img_size = img_size
+    self.mel_size = mel_size
+    self.time_size = time_size
     self.device = device
 
     self.beta = self.linear_noise_schedule().to(self.device)
@@ -27,10 +28,12 @@ class Diffusion:
     return torch.randint(low=1, high = self.noise_steps, size=(n,))
 
   def sampling(self, model, batch_n, labels, cfg_scale=3):
+    
     model.eval()
     with torch.no_grad():
-      x = torch.randn(batch_n, 1, self.img_size, self.img_size).to(self.device)
-      for t in range(self.noise_steps -1 , 0, -1): # 999, 998, ..., 1
+      x = torch.randn(batch_n, 1, self.mel_size, self.time_size).to(self.device)
+      for t in tqdm(range(self.noise_steps -1 , 0, -1)): # 999, 998, ..., 1
+        
         time = torch.tensor(t).repeat(batch_n).long().to(self.device)
         pred_noise = model(x, time, labels)
         
