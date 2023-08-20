@@ -3,7 +3,7 @@ import torch.nn as nn
 from module import Down, Up, SelfAttention, DoubleConv
 
 class Unet(nn.Module):
-  def __init__(self, c_in = 1, c_out = 1, time_dim=256, num_labels = [28, 5, 112]):
+  def __init__(self, c_in = 1, c_out = 1, first_c_in = 64, num_heads = 8, time_dim=256, num_labels = [28, 5, 112]):
     super().__init__()
     self.device = 'cuda'
     self.time_dim = time_dim
@@ -15,25 +15,33 @@ class Unet(nn.Module):
     self.mel_size = 80
     self.time_size = 251
     
-    self.inc = DoubleConv(c_in, 32)
-    self.down1 = Down(32, 128)
-    self.sa1 = SelfAttention(128, mel_size = self.mel_size // 2, time_size = self.time_size // 2 )
+    # self.inc = DoubleConv(c_in, 32)
+    # self.down1 = Down(32, 128)
+    self.inc = DoubleConv(c_in, first_c_in)
+    self.down1 = Down(first_c_in, 128)
+
+    self.sa1 = SelfAttention(128, mel_size = self.mel_size // 2, time_size = self.time_size // 2, num_heads=num_heads)
     self.down2 = Down(128, 256)
-    self.sa2 = SelfAttention(256, mel_size = self.mel_size // 4, time_size = self.time_size // 4 )
+    self.sa2 = SelfAttention(256, mel_size = self.mel_size // 4, time_size = self.time_size // 4, num_heads=num_heads)
     self.down3 = Down(256, 256)
-    self.sa3 = SelfAttention(256, mel_size = self.mel_size // 8, time_size = self.time_size // 8 )
+    self.sa3 = SelfAttention(256, mel_size = self.mel_size // 8, time_size = self.time_size // 8, num_heads=num_heads)
     
     self.bot1 = DoubleConv(256, 512)
     self.bot2 = DoubleConv(512, 512)
     self.bot3 = DoubleConv(512, 256)
     
     self.up1 = Up(512, 128)
-    self.sa4 = SelfAttention(128, mel_size = self.mel_size // 4, time_size = self.time_size // 4)
-    self.up2 = Up(in_c = 256, out_c = 32, odd = (40, 125))
-    self.sa5 = SelfAttention(32, mel_size = self.mel_size // 2, time_size = self.time_size // 2)
-    self.up3 = Up(64, 32, odd = (80, 251))
-    self.sa6 = SelfAttention(32, mel_size = self.mel_size, time_size = self.time_size)
-    self.outc = nn.Conv2d(32, c_out, kernel_size=1)
+    self.sa4 = SelfAttention(128, mel_size = self.mel_size // 4, time_size = self.time_size // 4, num_heads=num_heads)
+    # self.up2 = Up(in_c = 256, out_c = 32, odd = (40, 125))
+    # self.sa5 = SelfAttention(32, mel_size = self.mel_size // 2, time_size = self.time_size // 2)
+    # self.up3 = Up(64, 32, odd = (80, 251))
+    # self.sa6 = SelfAttention(32, mel_size = self.mel_size, time_size = self.time_size)
+    # self.outc = nn.Conv2d(32, c_out, kernel_size=1)
+    self.up2 = Up(in_c = 256, out_c = first_c_in, odd = (40, 125))
+    self.sa5 = SelfAttention(first_c_in, mel_size = self.mel_size // 2, time_size = self.time_size // 2, num_heads=num_heads)
+    self.up3 = Up(first_c_in*2, first_c_in, odd = (80, 251))
+    self.sa6 = SelfAttention(first_c_in, mel_size = self.mel_size, time_size = self.time_size, num_heads=num_heads)
+    self.outc = nn.Conv2d(first_c_in, c_out, kernel_size=1)
     
     if num_labels is not None:
       self.inst_emb = nn.Embedding(self.inst_label_num, time_dim)

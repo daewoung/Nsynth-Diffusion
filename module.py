@@ -57,6 +57,7 @@ class Up(nn.Module):
       self.up = nn.Upsample(size= odd, mode='bilinear', align_corners=True)
     else:
       self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+      
     self.conv = nn.Sequential(
       DoubleConv(in_c, in_c, residual=True),
       DoubleConv(in_c, out_c, mid_c = in_c//2),
@@ -132,13 +133,14 @@ class Up(nn.Module):
   
   
 class SelfAttention(nn.Module):
-  def __init__(self, channels, mel_size, time_size):
+  def __init__(self, channels, mel_size, time_size, num_heads=8):
     super().__init__()
 
     self.channels = channels
     self.mel_size = mel_size
     self.time_size = time_size
-    self.mha = nn.MultiheadAttention(embed_dim=self.channels * self.mel_size, num_heads=4, batch_first=True)
+    self.num_heads = num_heads
+    self.mha = nn.MultiheadAttention(embed_dim=self.channels * self.mel_size, num_heads=self.num_heads, batch_first=True)
     self.ln = nn.LayerNorm(self.channels * self.mel_size)
     self.ff = nn.Sequential(
       nn.LayerNorm(self.channels * self.mel_size),

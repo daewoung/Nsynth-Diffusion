@@ -1,10 +1,19 @@
 # dir
 inference_result/
 inference_result_2
+inference_result_3
+inference_result_4
 save_pt/
 save_pt_2
+save_pt_3
+save_pt_4
 wandb/
 
 #file
 test_wandb.py
 test.ipynb
+test_genre_list.pth
+test_pitch_list.pth 
+test_vel_list.pth 
+test_file.txt 
+

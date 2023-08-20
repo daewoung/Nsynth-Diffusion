@@ -12,10 +12,17 @@ from diffusion_process import Diffusion
 from tqdm.auto import tqdm
 from PIL import Image
 
+
+def min_max_normalize(data):
+    min_val = data.min()
+    max_val = data.max()
+    normalized_data = (data - min_val) / (max_val - min_val)
+    return normalized_data
+
 def inference(diffusion, model, inst_dict, pitch_dict, vel_dict, inst_specific, epoch, batch_n = 28,  device = 'cuda'):
   model_dir = '/home/daewoong/userdata/Study/diffusion/hifi_gan/diffwave/src/diffwave/pretrain/weights-554567.pt'
   pth = '/home/daewoong/userdata/Study/diffusion/nsynth-train-all/audio/'
-  save_pth = '/home/daewoong/userdata/Study/diffusion/nsynth_diffusion/inference_result_2/'
+  save_pth = '/home/daewoong/userdata/Study/diffusion/nsynth_diffusion/inference_result_4/'
 
   epoch = epoch
   #inst = list(inst_dict.values())
@@ -32,7 +39,10 @@ def inference(diffusion, model, inst_dict, pitch_dict, vel_dict, inst_specific, 
   y = [inst_label, pitch_label, vel_label]
   
   inst_name_tuple = torch.load('/home/daewoong/userdata/Study/diffusion/nsynth_diffusion/test_genre_list.pth')
+  #cfg_scale = [0, 10, 15]
   
+  #for cfg in tqdm(cfg_scale):
+    
   output = diffusion.sampling(model = model, batch_n = batch_n, labels = y)
   fig, axs = plt.subplots(1, 2, figsize=(10, 5))
 
@@ -64,13 +74,16 @@ def inference(diffusion, model, inst_dict, pitch_dict, vel_dict, inst_specific, 
     vocoder_audio, _ = diffwave_predict(vocoder_result, model_dir)
     torchaudio.save(save_pth + real_inst_name + '_' + random_tuple + '-' + str(real_pitch) + '-' + str(real_vel) + f'_{epoch}_org_vocoder_result.wav' , vocoder_audio.to('cpu'), sample_rate=16000) 
     
-    pred_vocoder_audio, _ = diffwave_predict(output[i].squeeze(0).to('cpu'), model_dir)
+    pred = output[i].squeeze(0).to('cpu')
+    pred = min_max_normalize(pred)
+    
+    pred_vocoder_audio, _ = diffwave_predict(pred, model_dir)
     
     torchaudio.save(save_pth + real_inst_name + '_' + random_tuple + '-' + str(real_pitch) + '-' + str(real_vel) + f'_{epoch}_diffusion_vocoder_result.wav' , pred_vocoder_audio.to('cpu'), sample_rate=16000) 
 
     
     axs[0].imshow(vocoder_result, aspect='auto', origin='lower')
-    axs[1].imshow(output[i].squeeze(0).to('cpu').numpy(), aspect='auto', origin='lower')
+    axs[1].imshow(pred.numpy(), aspect='auto', origin='lower')
 
     # 각 subplot에 제목 추가
     axs[0].set_title('Org Result')
@@ -106,9 +119,15 @@ def inference(diffusion, model, inst_dict, pitch_dict, vel_dict, inst_specific, 
     
     #mel_spectrogram = wandb.Image(fig_path)
     table.add_data(org_audio, vocoder_result, pred_result, 
-                   melspec)
+                  melspec)
     
-  wandb.log({f"Inference_{epoch}_epoch" : table})
+    
+  if epoch == 15:  
+    wandb.log({f"Inference_{epoch}_epoch_numheads{4}_32dim " : table})
+  elif epoch == 14:
+    wandb.log({f"Inference_{epoch}_epoch_numheads{4}_32dim " : table})
+  elif epoch == 10:  
+    wandb.log({f"Inference_{epoch}_epoch_numheads{8}_64dim " : table})
 
     
     
@@ -128,18 +147,35 @@ if __name__== "__main__":
   inst_specific = dataset.inst_specific
   
   wandb.init(project='Nsynth Diffusion_2')
-  wandb.run.name = 'infer'
-  epoch_list = [1, 2, 3, 4, 5]
+  wandb.run.name = 'infer_final'
+  epoch_list = [14,15, 10]
+  #epoch_list = [10, 11]
+  
   for i in tqdm(epoch_list):  
-    pth_path = f'/home/daewoong/userdata/Study/diffusion/nsynth_diffusion/save_pt_2/model_{i}.pth'
-    pt = torch.load(pth_path, map_location='cpu')
-    device = 'cuda'
-    model = Unet()
-    model.load_state_dict(pt)
-    print(f'Load {pth_path}')
+    if i == 15:
+      pth_path = f'/home/daewoong/userdata/Study/diffusion/nsynth_diffusion/save_pt_3/model_{i}.pth'  
+      pt = torch.load(pth_path, map_location='cpu')
+      device = 'cuda'
+      model = Unet(first_c_in=32, num_heads=4)
+      model.load_state_dict(pt['model'])
+      print(f'Load {pth_path}, first_c_in=32, num_heads=4')
+    elif i == 14:
+      pth_path = f'/home/daewoong/userdata/Study/diffusion/nsynth_diffusion/save_pt_3/model_{i}.pth'
+      pt = torch.load(pth_path, map_location='cpu')
+      device = 'cuda'
+      model = Unet(first_c_in=32, num_heads=4)
+      model.load_state_dict(pt['model'])
+      print(f'Load {pth_path}, first_c_in=32, num_heads=4')
+    elif i == 10:
+      pth_path = f'/home/daewoong/userdata/Study/diffusion/nsynth_diffusion/save_pt_4/model_{i}.pth'
+      pt = torch.load(pth_path, map_location='cpu')
+      device = 'cuda'
+      model = Unet(first_c_in=64, num_heads=8)
+      model.load_state_dict(pt['model'])
+      print(f'Load {pth_path}, first_c_in=64, num_heads=8')
+      
     model = model.to(device)
     diffusion = Diffusion()
- 
       
     columns = ["org_audio", "vocoder_result", "pred_result", "mel_spectrogram"]
     table = wandb.Table(columns=columns)
