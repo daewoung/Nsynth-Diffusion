@@ -8,7 +8,7 @@ save_pt_2
 save_pt_3
 save_pt_4
 wandb/
-
+__pycache__
 #file
 test_wandb.py
 test.ipynb
